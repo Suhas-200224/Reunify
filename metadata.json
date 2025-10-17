@@ -1,0 +1,5 @@
+{
+  "name": "Copy of Reunify",
+  "description": "An application that uses generative AI to create a photo of an adult hugging their younger self. Users upload a childhood photo and a recent photo to generate a heartwarming image of their two selves reuniting.",
+  "requestFramePermissions": []
+}
