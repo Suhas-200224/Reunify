@@ -1,5 +1,4 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { GoogleGenAI, Modality } from "@google/genai";
 import { Header } from './components/Header';
 import { ImageUploader } from './components/ImageUploader';
 import { Spinner } from './components/Spinner';
@@ -66,42 +65,32 @@ const App: React.FC = () => {
     setGeneratedImage(null);
 
     try {
-        if (!process.env.API_KEY) {
-            throw new Error("API key is not configured. Please set the API_KEY environment variable.");
-        }
-        
-        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-        
         const childPhotoDetails = await fileToBase64(childPhoto);
         const adultPhotoDetails = await fileToBase64(adultPhoto);
 
-        const generatePrompt = () => {
-          return `Create a single, new, hyper-realistic 4K photo based on the two images provided.
-          Image 1 is a child. Image 2 is an adult.
-          The final image must depict the adult from Image 2 giving a warm, loving, and authentic hug to the child from Image 1.
-          Crucially, this should feel like a genuine, emotive moment of connection, as if a person is reuniting with their younger self across time.
-          Pay close attention to details like skin texture, lighting, and shadows to ensure maximum realism.
-          The original backgrounds must be completely replaced with a seamless, smooth, off-white studio background that is subtly lit with soft, natural light to enhance the emotional tone of the scene.
-          The composition should be heartwarming and artistically beautiful.`;
-        };
-
-        const childImagePart = { inlineData: { mimeType: childPhotoDetails.mimeType, data: childPhotoDetails.data } };
-        const adultImagepart = { inlineData: { mimeType: adultPhotoDetails.mimeType, data: adultPhotoDetails.data } };
-        const textPart = { text: generatePrompt() };
-        
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash-image',
-            contents: { parts: [ childImagePart, adultImagepart, textPart ] },
-            config: { responseModalities: [Modality.IMAGE] },
+        const response = await fetch('/api/generate', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                childPhoto: childPhotoDetails,
+                adultPhoto: adultPhotoDetails,
+            }),
         });
 
-        if (response.candidates && response.candidates[0].content.parts[0].inlineData) {
-            const imageData = response.candidates[0].content.parts[0].inlineData.data;
-            setGeneratedImage(`data:image/png;base64,${imageData}`);
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || `The server had a problem (status: ${response.status}).`);
+        }
+
+        const data = await response.json();
+        
+        if (data.imageData) {
+            setGeneratedImage(`data:image/png;base64,${data.imageData}`);
             setAppState('result');
         } else {
-            console.error("API response was blocked or malformed", response);
-            throw new Error("The AI did not return a valid image. The request may have been blocked for safety reasons.");
+            throw new Error("The AI did not return a valid image. Please try again.");
         }
 
     } catch (err: any) {
@@ -144,7 +133,7 @@ const App: React.FC = () => {
           const interval = setInterval(getNextMessage, 2200);
           return () => clearInterval(interval);
       }
-  }, [appState, usedMessageIndexes, loadingMessages]);
+  }, [appState, usedMessageIndexes]);
 
   const renderContent = () => {
       switch(appState) {
